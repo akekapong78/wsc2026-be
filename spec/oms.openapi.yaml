@@ -277,6 +277,7 @@ paths:
                 reportId: "OMS-ANON-0001"
                 status: "RECEIVED"
                 message: "OMS รับแจ้งเหตุโดยไม่มีหมายเลขผู้ใช้ไฟแล้ว"
+                location: null
 
         '400':
           description: Request ไม่ถูกต้อง
@@ -349,17 +350,17 @@ components:
           type: string
           minLength: 1
           examples:
-            - "MTR-001"
+            - "6602846772"
         transformerId:
           type: string
           minLength: 1
           examples:
-            - "TR-001"
+            - "LNTW0329"
         feederId:
           type: string
           minLength: 1
           examples:
-            - "FDR-01"
+            - "LNTW-FDR"
 
     ActiveOutageEvent:
       type: object

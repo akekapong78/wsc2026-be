@@ -181,7 +181,9 @@ components:
       additionalProperties: false
       required: [code, message]
       properties:
-        code: { type: string }
+        code:
+          type: string
+          enum: [EVENT_NOT_FOUND, INVALID_INPUT, ACTIVE_EVENT_EXISTS, INTERNAL_ERROR]
         message: { type: string }
 
     ErrorResponse:
