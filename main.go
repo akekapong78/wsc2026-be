@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
+	"wsc2026-be/internal/apikey"
 	"wsc2026-be/internal/oms"
 )
 
@@ -32,8 +33,14 @@ func main() {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
+	apiKey := os.Getenv("API_KEY")
+	if apiKey == "" {
+		log.Fatal("API_KEY is not set")
+	}
+
 	api := app.Group("/api/v1")
-	oms.RegisterRoutes(api.Group("/oms"), oms.NewPgClient(pool))
+	omsGroup := api.Group("/oms", apikey.Middleware(apiKey))
+	oms.RegisterRoutes(omsGroup, oms.NewPgClient(pool))
 
 	// Dev-only Swagger UI test client — http://localhost:8080/test/swagger.html
 	// (reads spec live from /spec/*.yaml, no rebuild needed on spec edits)

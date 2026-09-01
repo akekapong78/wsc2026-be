@@ -6,9 +6,16 @@
 <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
 </head>
 <body>
+<div style="padding:.5rem 1rem;font-family:system-ui,sans-serif">
+  X-API-Key: <input id="api-key" type="text" size="40" placeholder="paste API_KEY from .env"
+    onchange="localStorage.setItem('wsc2026-be-api-key', this.value)">
+</div>
 <div id="swagger-ui"></div>
 <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
 <script>
+  const keyInput = document.getElementById('api-key');
+  keyInput.value = localStorage.getItem('wsc2026-be-api-key') || '';
+
   window.onload = () => {
     SwaggerUIBundle({
       url: '/spec/oms.openapi.yaml',
@@ -16,11 +23,13 @@
       presets: [SwaggerUIBundle.presets.apis],
       // spec's `servers:` points at the real OMS service (localhost:8101,
       // not running here) — redirect every "Try it out" call to this Go
-      // BE's mock instead, mounted under /api/v1/oms/... (same origin).
+      // BE instead, mounted under /api/v1/oms/... (same origin), and
+      // attach the X-API-Key the /oms group requires.
       requestInterceptor: (req) => {
         req.url = req.url
           .replace(/^https?:\/\/[^/]+/, '')
           .replace('/api/v1/', '/api/v1/oms/');
+        req.headers['X-API-Key'] = keyInput.value;
         return req;
       },
     });
