@@ -34,6 +34,14 @@ type NetworkReference struct {
 	FeederID      string `json:"feederId"`
 }
 
+// GeoPoint is a best-effort coordinate for the FE-osm map client — see
+// GisClient.Lookup. Nil fields mean no match was found (not sent as 0,0).
+type GeoPoint struct {
+	Lat     *float64 `json:"lat"`
+	Lon     *float64 `json:"lon"`
+	GisType *string  `json:"gisType"` // "POINT" (exact meter match) or "AREA" (approximated)
+}
+
 type ActiveOutageEvent struct {
 	EventID            string       `json:"eventId"`
 	Level              EventLevel   `json:"level"`
@@ -41,6 +49,7 @@ type ActiveOutageEvent struct {
 	Message            string       `json:"message"`
 	StartedAt          time.Time    `json:"startedAt"`
 	EstimatedRestoreAt *time.Time   `json:"estimatedRestoreAt"`
+	Location           *GeoPoint    `json:"location"`
 }
 
 type OutageCheckResponse struct {
@@ -64,6 +73,7 @@ type CreateOutageResponse struct {
 	Level    EventLevel   `json:"level"`
 	Status   OutageStatus `json:"status"`
 	Message  string       `json:"message"`
+	Location *GeoPoint    `json:"location"`
 }
 
 type CreateAnonymousOutageRequest struct {
@@ -76,6 +86,7 @@ type CreateAnonymousOutageResponse struct {
 	ReportID string       `json:"reportId"`
 	Status   OutageStatus `json:"status"`
 	Message  string       `json:"message"`
+	Location *GeoPoint    `json:"location"`
 }
 
 type ErrorCode string

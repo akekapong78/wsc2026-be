@@ -132,7 +132,7 @@ components:
     AdminOutageEvent:
       type: object
       additionalProperties: false
-      required: [eventId, caNumber, level, status, statusLabel, message, startedAt, estimatedRestoreAt]
+      required: [eventId, caNumber, level, status, statusLabel, message, startedAt, estimatedRestoreAt, location]
       properties:
         eventId: { type: string }
         caNumber: { type: string }
@@ -145,6 +145,26 @@ components:
           anyOf:
             - type: string
               format: date-time
+            - type: 'null'
+        location:
+          anyOf:
+            - $ref: '#/components/schemas/GeoPoint'
+            - type: 'null'
+
+    GeoPoint:
+      type: object
+      additionalProperties: false
+      required: [lat, lon, gisType]
+      description: |
+        พิกัดจาก GIS meter database (gis_l) แยกฐานข้อมูล — POINT = จับคู่ ca_no
+        ตรง (พิกัดมิเตอร์จริง), AREA = ประมาณจากพิกัดเฉลี่ยในตำบล/อำเภอเดียวกัน
+      properties:
+        lat: { anyOf: [{ type: number }, { type: 'null' }] }
+        lon: { anyOf: [{ type: number }, { type: 'null' }] }
+        gisType:
+          anyOf:
+            - type: string
+              enum: [POINT, AREA]
             - type: 'null'
 
     UpdateOutageEventRequest:

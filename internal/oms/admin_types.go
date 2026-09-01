@@ -13,6 +13,7 @@ type AdminOutageEvent struct {
 	Message            string       `json:"message"`
 	StartedAt          time.Time    `json:"startedAt"`
 	EstimatedRestoreAt *time.Time   `json:"estimatedRestoreAt"`
+	Location           *GeoPoint    `json:"location"`
 }
 
 // UpdateOutageEventRequest is a partial update — nil fields are left

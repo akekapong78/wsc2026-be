@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,10 +15,11 @@ import (
 // server code; MockClient stays only as a test double.
 type PgClient struct {
 	pool *pgxpool.Pool
+	gis  *GisClient // nil = coordinate lookup disabled (GIS_DBSTRING not set)
 }
 
-func NewPgClient(pool *pgxpool.Pool) *PgClient {
-	return &PgClient{pool: pool}
+func NewPgClient(pool *pgxpool.Pool, gis *GisClient) *PgClient {
+	return &PgClient{pool: pool, gis: gis}
 }
 
 func internalErr() error {
@@ -60,12 +62,14 @@ func (p *PgClient) GetOutageByCA(ctx context.Context, caNumber string) (*OutageC
 func (p *PgClient) activeEvent(ctx context.Context, caNumber string) (*ActiveOutageEvent, error) {
 	var e ActiveOutageEvent
 	var level, status string
+	var lat, lon *float64
+	var gisType *string
 	err := p.pool.QueryRow(ctx,
-		`SELECT event_id, level, status, message, started_at, estimated_restore_at
+		`SELECT event_id, level, status, message, started_at, estimated_restore_at, lat, lon, gis_type
 		 FROM oms_outage_events WHERE ca_number = $1 AND status <> 'RESTORED'
 		 ORDER BY started_at DESC LIMIT 1`,
 		caNumber,
-	).Scan(&e.EventID, &level, &status, &e.Message, &e.StartedAt, &e.EstimatedRestoreAt)
+	).Scan(&e.EventID, &level, &status, &e.Message, &e.StartedAt, &e.EstimatedRestoreAt, &lat, &lon, &gisType)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -73,6 +77,9 @@ func (p *PgClient) activeEvent(ctx context.Context, caNumber string) (*ActiveOut
 		return nil, internalErr()
 	}
 	e.Level, e.Status = EventLevel(level), OutageStatus(status)
+	if lat != nil && lon != nil {
+		e.Location = &GeoPoint{Lat: lat, Lon: lon, GisType: gisType}
+	}
 	return &e, nil
 }
 
@@ -126,9 +133,16 @@ func (p *PgClient) CreateOutage(ctx context.Context, req CreateOutageRequest) (*
 		return nil, internalErr()
 	}
 
+	addressText := req.Description
+	if req.LocationNote != nil {
+		addressText = *req.LocationNote + " " + addressText
+	}
+	location := p.enrichOutageLocation(ctx, eventID, req.CaNumber, addressText)
+
 	return &CreateOutageResponse{
 		EventID: eventID, CaNumber: req.CaNumber, Level: EventLevelMeter, Status: StatusReceived,
-		Message: "OMS รับแจ้งเหตุไฟฟ้าขัดข้องของผู้ใช้ไฟแล้ว",
+		Message:  "OMS รับแจ้งเหตุไฟฟ้าขัดข้องของผู้ใช้ไฟแล้ว",
+		Location: location,
 	}, nil
 }
 
@@ -147,10 +161,59 @@ func (p *PgClient) CreateAnonymousOutage(ctx context.Context, req CreateAnonymou
 		return nil, internalErr()
 	}
 
+	location := p.enrichAnonymousLocation(ctx, reportID, req.Location+" "+req.Description)
+
 	return &CreateAnonymousOutageResponse{
 		ReportID: reportID, Status: StatusReceived,
-		Message: "OMS รับแจ้งเหตุโดยไม่มีหมายเลขผู้ใช้ไฟแล้ว",
+		Message:  "OMS รับแจ้งเหตุโดยไม่มีหมายเลขผู้ใช้ไฟแล้ว",
+		Location: location,
 	}, nil
+}
+
+// enrichOutageLocation is best-effort: a GIS lookup failure or miss must
+// never fail the outage report itself, so errors are logged and swallowed.
+func (p *PgClient) enrichOutageLocation(ctx context.Context, eventID, caNumber, addressText string) *GeoPoint {
+	if p.gis == nil {
+		return nil
+	}
+	loc, err := p.gis.Lookup(ctx, caNumber, addressText)
+	if err != nil {
+		log.Printf("gis lookup failed for outage %s: %v", eventID, err)
+		return nil
+	}
+	if loc == nil {
+		return nil
+	}
+	if _, err := p.pool.Exec(ctx,
+		`UPDATE oms_outage_events SET lat = $1, lon = $2, gis_type = $3 WHERE event_id = $4`,
+		loc.Lat, loc.Lon, loc.GisType, eventID,
+	); err != nil {
+		log.Printf("failed to store gis location for outage %s: %v", eventID, err)
+		return nil
+	}
+	return &GeoPoint{Lat: &loc.Lat, Lon: &loc.Lon, GisType: &loc.GisType}
+}
+
+func (p *PgClient) enrichAnonymousLocation(ctx context.Context, reportID, addressText string) *GeoPoint {
+	if p.gis == nil {
+		return nil
+	}
+	loc, err := p.gis.Lookup(ctx, "", addressText)
+	if err != nil {
+		log.Printf("gis lookup failed for anonymous report %s: %v", reportID, err)
+		return nil
+	}
+	if loc == nil {
+		return nil
+	}
+	if _, err := p.pool.Exec(ctx,
+		`UPDATE oms_anonymous_reports SET lat = $1, lon = $2, gis_type = $3 WHERE report_id = $4`,
+		loc.Lat, loc.Lon, loc.GisType, reportID,
+	); err != nil {
+		log.Printf("failed to store gis location for anonymous report %s: %v", reportID, err)
+		return nil
+	}
+	return &GeoPoint{Lat: &loc.Lat, Lon: &loc.Lon, GisType: &loc.GisType}
 }
 
 var _ Client = (*PgClient)(nil)

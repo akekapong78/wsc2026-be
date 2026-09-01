@@ -359,6 +359,7 @@ components:
         - message
         - startedAt
         - estimatedRestoreAt
+        - location
       properties:
         eventId:
           type: string
@@ -387,6 +388,33 @@ components:
               format: date-time
             - type: 'null'
           description: เวลาคาดว่าจะจ่ายไฟกลับ หาก OMS มีข้อมูล
+
+        location:
+          anyOf:
+            - $ref: '#/components/schemas/GeoPoint'
+            - type: 'null'
+          description: พิกัดโดยประมาณสำหรับ FE-osm — null เมื่อไม่พบข้อมูลใน GIS
+
+    GeoPoint:
+      type: object
+      additionalProperties: false
+      required: [lat, lon, gisType]
+      description: |
+        พิกัดจาก GIS meter database (gis_l, ca_no -> lat/lon) แยกฐานข้อมูลจากระบบนี้
+
+        gisType:
+          POINT: จับคู่ ca_no ตรง — พิกัดมิเตอร์จริง
+          AREA: ไม่พบ ca_no ตรง ประมาณจากพิกัดเฉลี่ยของมิเตอร์ในตำบล/อำเภอเดียวกัน
+      properties:
+        lat:
+          anyOf: [{ type: number }, { type: 'null' }]
+        lon:
+          anyOf: [{ type: number }, { type: 'null' }]
+        gisType:
+          anyOf:
+            - type: string
+              enum: [POINT, AREA]
+            - type: 'null'
 
     OutageCheckResponse:
       type: object
@@ -460,6 +488,7 @@ components:
         - level
         - status
         - message
+        - location
       properties:
         eventId:
           type: string
@@ -479,6 +508,11 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
+
+        location:
+          anyOf:
+            - $ref: '#/components/schemas/GeoPoint'
+            - type: 'null'
 
     CreateAnonymousOutageRequest:
       type: object
@@ -513,6 +547,7 @@ components:
         - reportId
         - status
         - message
+        - location
       properties:
         reportId:
           type: string
@@ -525,6 +560,11 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
+
+        location:
+          anyOf:
+            - $ref: '#/components/schemas/GeoPoint'
+            - type: 'null'
 
     ErrorDetail:
       type: object

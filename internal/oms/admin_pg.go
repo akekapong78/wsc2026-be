@@ -9,7 +9,8 @@ import (
 )
 
 const outageEventCols = `
-	e.event_id, e.ca_number, e.level, e.status, s.label, e.message, e.started_at, e.estimated_restore_at`
+	e.event_id, e.ca_number, e.level, e.status, s.label, e.message, e.started_at, e.estimated_restore_at,
+	e.lat, e.lon, e.gis_type`
 
 func (p *PgClient) ListStatuses(ctx context.Context) ([]StatusOption, error) {
 	rows, err := p.pool.Query(ctx, `SELECT code, label, is_closed FROM oms_status ORDER BY code`)
@@ -119,8 +120,13 @@ type scannable interface {
 func scanAdminOutageEvent(row scannable) (AdminOutageEvent, error) {
 	var e AdminOutageEvent
 	var level, status string
+	var lat, lon *float64
+	var gisType *string
 	err := row.Scan(&e.EventID, &e.CaNumber, &level, &status, &e.StatusLabel,
-		&e.Message, &e.StartedAt, &e.EstimatedRestoreAt)
+		&e.Message, &e.StartedAt, &e.EstimatedRestoreAt, &lat, &lon, &gisType)
 	e.Level, e.Status = EventLevel(level), OutageStatus(status)
+	if lat != nil && lon != nil {
+		e.Location = &GeoPoint{Lat: lat, Lon: lon, GisType: gisType}
+	}
 	return e, err
 }

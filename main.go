@@ -27,6 +27,20 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Separate read-only GIS meter database (different Supabase project) —
+	// optional: coordinate lookups just get skipped if it's not configured.
+	var gisClient *oms.GisClient
+	if gisDBString := os.Getenv("GIS_DBSTRING"); gisDBString != "" {
+		gisPool, err := pgxpool.New(context.Background(), gisDBString)
+		if err != nil {
+			log.Fatalf("open gis db pool: %v", err)
+		}
+		defer gisPool.Close()
+		gisClient = oms.NewGisClient(gisPool)
+	} else {
+		log.Println("GIS_DBSTRING not set — outage reports will have no location")
+	}
+
 	app := fiber.New()
 
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -38,7 +52,7 @@ func main() {
 		log.Fatal("API_KEY is not set")
 	}
 
-	pgClient := oms.NewPgClient(pool)
+	pgClient := oms.NewPgClient(pool, gisClient)
 
 	api := app.Group("/api/v1")
 	omsGroup := api.Group("/oms", apikey.Middleware(apiKey))
