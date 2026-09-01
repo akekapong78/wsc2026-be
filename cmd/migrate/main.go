@@ -11,13 +11,27 @@ import (
 
 // usage: go run ./cmd/migrate [up|down|status|create ...] (defaults to "up")
 func main() {
-	dbstring := os.Getenv("GOOSE_DBSTRING")
-	if dbstring == "" {
-		log.Fatal("GOOSE_DBSTRING is not set")
-	}
 	dir := os.Getenv("GOOSE_MIGRATION_DIR")
 	if dir == "" {
 		dir = "./migrations"
+	}
+
+	command := "up"
+	if len(os.Args) > 1 {
+		command = os.Args[1]
+	}
+
+	// "create" only writes a new migration file, no DB connection needed.
+	if command == "create" {
+		if err := goose.Run(command, nil, dir, os.Args[2:]...); err != nil {
+			log.Fatalf("goose %s: %v", command, err)
+		}
+		return
+	}
+
+	dbstring := os.Getenv("GOOSE_DBSTRING")
+	if dbstring == "" {
+		log.Fatal("GOOSE_DBSTRING is not set")
 	}
 
 	db, err := sql.Open("pgx", dbstring)
@@ -25,11 +39,6 @@ func main() {
 		log.Fatalf("open db: %v", err)
 	}
 	defer db.Close()
-
-	command := "up"
-	if len(os.Args) > 1 {
-		command = os.Args[1]
-	}
 
 	if err := goose.Run(command, db, dir, os.Args[2:]...); err != nil {
 		log.Fatalf("goose %s: %v", command, err)

@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	github.com/gofiber/fiber/v2 v2.52.15
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/joho/godotenv v1.5.1
 	github.com/pressly/goose/v3 v3.27.3
 )
 

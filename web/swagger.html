@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>wsc2026-be — Swagger UI</title>
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+  window.onload = () => {
+    SwaggerUIBundle({
+      url: '/spec/oms.openapi.yaml',
+      dom_id: '#swagger-ui',
+      presets: [SwaggerUIBundle.presets.apis],
+      // spec's `servers:` points at the real OMS service (localhost:8101,
+      // not running here) — redirect every "Try it out" call to this Go
+      // BE's mock instead, mounted under /api/v1/oms/... (same origin).
+      requestInterceptor: (req) => {
+        req.url = req.url
+          .replace(/^https?:\/\/[^/]+/, '')
+          .replace('/api/v1/', '/api/v1/oms/');
+        return req;
+      },
+    });
+  };
+</script>
+</body>
+</html>
