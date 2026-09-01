@@ -1,0 +1,261 @@
+openapi: 3.1.0
+
+info:
+  title: VOC Admin API
+  version: 1.0.0
+  description: |
+    CRUD ฝั่งแอดมินสำหรับ voc_cases — ปรับ/ปิดสถานะเคส VOC ได้โดยตรง
+    (ไม่ผ่าน public tracking flow ของ `/api/v1/voc/...`) รันอยู่ใน wsc2026-be เอง
+    ไม่มี endpoint สำหรับ list เคสทั้งหมดใน public spec (spec/voc.openapi.yaml)
+    โดยตั้งใจ — endpoint นี้จึงเป็นทางเดียวที่ดูรายการเคสทั้งหมดได้
+    ต้องมี X-API-Key เหมือน `/api/v1/voc/...`
+
+servers:
+  - url: http://localhost:8080
+    description: wsc2026-be (this gateway)
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Admin
+
+paths:
+  /api/v1/voc/admin/statuses:
+    get:
+      tags: [Admin]
+      operationId: listVocStatuses
+      summary: รายการ status ที่ใช้ได้ (จาก voc_status)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VocStatusOption'
+
+  /api/v1/voc/admin/cases:
+    get:
+      tags: [Admin]
+      operationId: listVocCases
+      summary: รายการเคส VOC ทั้งหมด
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminCase'
+
+  /api/v1/voc/admin/cases/{caseId}:
+    parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+
+    get:
+      tags: [Admin]
+      operationId: getVocCase
+      summary: ดูเคสรายตัว (รวม reporter/consent — ไม่ปรากฏใน public lookup)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCase' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    patch:
+      tags: [Admin]
+      operationId: updateVocCase
+      summary: ปรับสถานะเคส (partial update — เปลี่ยน status จะเพิ่ม timeline entry ให้อัตโนมัติ)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateCaseRequest' }
+            example:
+              status: RESOLVED
+              message: ดำเนินการแก้ไขปัญหาแรงดันไฟฟ้าเรียบร้อยแล้ว
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCase' }
+        '400':
+          description: status ที่ระบุไม่มีอยู่ใน voc_status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    delete:
+      tags: [Admin]
+      operationId: deleteVocCase
+      summary: ลบเคส (ปกติควรปิดงานด้วย PATCH status=RESOLVED/REJECTED/CANCELLED แทน — ใช้เมื่อบันทึกผิดจริง ๆ เท่านั้น)
+      responses:
+        '204': { description: ลบสำเร็จ }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  responses:
+    NotFound:
+      description: ไม่พบเคสที่ระบุ
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    VocStatusOption:
+      type: object
+      additionalProperties: false
+      required: [code, label, isClosed]
+      properties:
+        code: { type: string, examples: [RESOLVED] }
+        label: { type: string, examples: ["ดำเนินการเสร็จสิ้น"] }
+        isClosed: { type: boolean }
+
+    ClassificationSelection:
+      type: object
+      additionalProperties: false
+      required: [requestTypeCode, topicCode, issueCode]
+      properties:
+        requestTypeCode: { type: string }
+        topicCode: { type: string }
+        issueCode: { type: string }
+        subIssueCode: { type: string }
+        productImportance: { type: string, enum: [NEED, EXPECTATION] }
+
+    IncidentLocation:
+      type: object
+      additionalProperties: false
+      required: [provinceCode, districtCode, subdistrictCode, peaOfficeCode, locationText]
+      properties:
+        provinceCode: { type: string }
+        districtCode: { type: string }
+        subdistrictCode: { type: string }
+        peaOfficeCode: { type: string }
+        locationText: { type: string }
+        houseNumber: { type: string }
+        moo: { type: string }
+        villageOrBuilding: { type: string }
+        road: { type: string }
+        soi: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+
+    Reporter:
+      type: object
+      additionalProperties: false
+      description: null เมื่อ journey นี้ไม่มีผู้แจ้ง (เช่น TIP_OFF แบบไม่เปิดเผยตัวตน)
+      properties:
+        prefixCode: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        phone: { type: string }
+        email: { type: string, format: email }
+        nationalId: { type: string, description: ข้อมูลละเอียดอ่อน }
+        caNumber: { type: string }
+        meterNumber: { type: string }
+        contactAddress: { type: object }
+
+    ConsentRecord:
+      type: object
+      additionalProperties: false
+      required: [accepted, noticeVersion, acceptedAt, channel]
+      properties:
+        accepted: { type: boolean }
+        noticeVersion: { type: string }
+        acceptedAt: { type: string, format: date-time }
+        channel: { type: string, enum: [CHAT, VOICE] }
+
+    TimelineEntry:
+      type: object
+      additionalProperties: false
+      required: [status, label, occurredAt, message]
+      properties:
+        status: { type: string }
+        label: { type: string }
+        occurredAt: { type: string, format: date-time }
+        message: { type: string }
+
+    AdminCase:
+      type: object
+      additionalProperties: false
+      required:
+        - caseId
+        - vocNumber
+        - status
+        - statusLabel
+        - journeyCode
+        - classification
+        - incident
+        - reporter
+        - frequencyCode
+        - severityLevel
+        - detail
+        - consent
+        - createdAt
+        - updatedAt
+        - timeline
+      properties:
+        caseId: { type: string, format: uuid }
+        vocNumber: { type: string }
+        status: { type: string, enum: [SUBMITTED, ACKNOWLEDGED, IN_PROGRESS, WAITING_CUSTOMER, RESOLVED, REJECTED, CANCELLED] }
+        statusLabel: { type: string }
+        journeyCode: { type: string }
+        classification: { $ref: '#/components/schemas/ClassificationSelection' }
+        incident: { $ref: '#/components/schemas/IncidentLocation' }
+        reporter:
+          anyOf:
+            - $ref: '#/components/schemas/Reporter'
+            - type: 'null'
+        frequencyCode:
+          anyOf: [{ type: string }, { type: 'null' }]
+        severityLevel:
+          anyOf: [{ type: integer }, { type: 'null' }]
+        detail: { type: string }
+        consent: { $ref: '#/components/schemas/ConsentRecord' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        timeline:
+          type: array
+          items: { $ref: '#/components/schemas/TimelineEntry' }
+
+    UpdateCaseRequest:
+      type: object
+      additionalProperties: false
+      description: ฟิลด์ที่ไม่ส่งมาจะไม่ถูกแก้ (partial update)
+      properties:
+        status: { type: string, enum: [SUBMITTED, ACKNOWLEDGED, IN_PROGRESS, WAITING_CUSTOMER, RESOLVED, REJECTED, CANCELLED] }
+        message: { type: string, minLength: 1, maxLength: 500 }
+
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [CASE_NOT_FOUND, INVALID_INPUT, INTERNAL_ERROR]
+        message: { type: string }
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [simulation, error]
+      properties:
+        simulation: { type: boolean, const: true }
+        error: { $ref: '#/components/schemas/ErrorDetail' }

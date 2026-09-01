@@ -9,8 +9,10 @@
 <div style="padding:.5rem 1rem;font-family:system-ui,sans-serif;display:flex;gap:1.5rem;align-items:center">
   <label>Spec:
     <select id="spec-select">
-      <option value="oms">Operational — /api/v1/oms/...</option>
-      <option value="oms-admin">Admin — /api/v1/oms/admin/...</option>
+      <option value="oms">OMS — /api/v1/oms/...</option>
+      <option value="oms-admin">OMS Admin — /api/v1/oms/admin/...</option>
+      <option value="voc">VOC — /api/v1/voc/...</option>
+      <option value="voc-admin">VOC Admin — /api/v1/voc/admin/...</option>
     </select>
   </label>
   <label>X-API-Key:
@@ -40,6 +42,15 @@
       );
     },
     'oms-admin': (doc) => {
+      doc.servers = [{ url: location.origin, description: 'this gateway (wsc2026-be)' }];
+    },
+    // voc.openapi.yaml paths already start with /api/v1/voc/... (this
+    // gateway's real mount point), unlike oms's bare paths — just point
+    // servers at wherever this page is actually being served from.
+    voc: (doc) => {
+      doc.servers = [{ url: location.origin, description: 'this gateway (wsc2026-be)' }];
+    },
+    'voc-admin': (doc) => {
       doc.servers = [{ url: location.origin, description: 'this gateway (wsc2026-be)' }];
     },
   };

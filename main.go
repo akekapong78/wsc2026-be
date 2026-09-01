@@ -12,6 +12,7 @@ import (
 
 	"wsc2026-be/internal/apikey"
 	"wsc2026-be/internal/oms"
+	"wsc2026-be/internal/voc"
 )
 
 func main() {
@@ -62,6 +63,13 @@ func main() {
 	// prepare/confirm — same API_KEY guard as the operational group for now).
 	adminGroup := api.Group("/oms/admin", apikey.Middleware(apiKey))
 	oms.RegisterAdminRoutes(adminGroup, pgClient)
+
+	vocPgClient := voc.NewPgClient(pool)
+	vocGroup := api.Group("/voc", apikey.Middleware(apiKey))
+	voc.RegisterRoutes(vocGroup, vocPgClient)
+
+	vocAdminGroup := api.Group("/voc/admin", apikey.Middleware(apiKey))
+	voc.RegisterAdminRoutes(vocAdminGroup, vocPgClient)
 
 	// Dev-only Swagger UI test client — http://localhost:8080/test/swagger.html
 	// (reads spec live from /spec/*.yaml, no rebuild needed on spec edits)
