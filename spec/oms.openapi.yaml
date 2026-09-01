@@ -53,11 +53,11 @@ paths:
             $ref: '#/components/schemas/CaNumber'
           examples:
             transformerEvent:
-              value: "100000000001"
+              value: "020027219860"
             feederEvent:
-              value: "100000000002"
+              value: "020007992928"
             noEvent:
-              value: "100000000003"
+              value: "020008076556"
       responses:
         '200':
           description: ตรวจสอบ CA สำเร็จ
@@ -69,12 +69,12 @@ paths:
                 transformerEvent:
                   summary: พบเหตุระดับหม้อแปลง
                   value:
-                    caNumber: "100000000001"
+                    caNumber: "020027219860"
                     customerFound: true
                     network:
-                      meterId: "MTR-001"
-                      transformerId: "TR-001"
-                      feederId: "FDR-01"
+                      meterId: "6602846772"
+                      transformerId: "LNTW0329"
+                      feederId: "LNTW-FDR"
                     activeEvent:
                       eventId: "OMS-TR-0001"
                       level: "TRANSFORMER"
@@ -82,17 +82,21 @@ paths:
                       message: "พบเหตุไฟฟ้าขัดข้องที่หม้อแปลงซึ่งจ่ายไฟให้ผู้ใช้ไฟรายนี้"
                       startedAt: "2026-09-01T07:30:00+07:00"
                       estimatedRestoreAt: null
+                      location:
+                        lat: 6.41051256
+                        lon: 101.8209484
+                        gisType: "POINT"
                     recommendedAction: "INFORM_EXISTING_EVENT"
 
                 feederEvent:
                   summary: พบเหตุระดับฟีดเดอร์
                   value:
-                    caNumber: "100000000002"
+                    caNumber: "020007992928"
                     customerFound: true
                     network:
-                      meterId: "MTR-002"
-                      transformerId: "TR-002"
-                      feederId: "FDR-02"
+                      meterId: "6500481663"
+                      transformerId: "LNTW9077"
+                      feederId: "LNTW-FDR"
                     activeEvent:
                       eventId: "OMS-FDR-0001"
                       level: "FEEDER"
@@ -100,17 +104,21 @@ paths:
                       message: "พบเหตุไฟฟ้าขัดข้องระดับฟีดเดอร์ที่ครอบคลุมพื้นที่ของผู้ใช้ไฟรายนี้"
                       startedAt: "2026-09-01T07:00:00+07:00"
                       estimatedRestoreAt: null
+                      location:
+                        lat: 6.42665666
+                        lon: 101.80049166
+                        gisType: "POINT"
                     recommendedAction: "INFORM_EXISTING_EVENT"
 
                 noEvent:
                   summary: ไม่พบเหตุที่เกี่ยวข้อง
                   value:
-                    caNumber: "100000000003"
+                    caNumber: "020008076556"
                     customerFound: true
                     network:
-                      meterId: "MTR-003"
-                      transformerId: "TR-003"
-                      feederId: "FDR-03"
+                      meterId: "21539803"
+                      transformerId: "LNTW0799"
+                      feederId: "LNTW-FDR"
                     activeEvent: null
                     recommendedAction: "CREATE_METER_EVENT"
 
@@ -162,10 +170,10 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateOutageRequest'
             example:
-              caNumber: "100000000003"
+              caNumber: "020008076556"
               description: "ไฟดับทั้งบ้านตั้งแต่ประมาณ 08:00 น."
               contactPhone: "0812345678"
-              locationNote: "บ้านเลขที่ 99 ตำบลตัวอย่าง"
+              locationNote: "44 บ.โคกโก ม.4 ต.ลำภู อ.เมืองนราธิวาส"
       responses:
         '201':
           description: สร้างเหตุไฟฟ้าขัดข้องสำเร็จ
@@ -174,11 +182,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateOutageResponse'
               example:
-                eventId: "OMS-METER-0001"
-                caNumber: "100000000003"
+                eventId: "OMS-METER-0002"
+                caNumber: "020008076556"
                 level: "METER"
                 status: "RECEIVED"
                 message: "OMS รับแจ้งเหตุไฟฟ้าขัดข้องของผู้ใช้ไฟแล้ว"
+                location:
+                  lat: 6.35475349
+                  lon: 101.80021432
+                  gisType: "POINT"
 
         '400':
           description: Request ไม่ถูกต้อง
@@ -292,7 +304,7 @@ components:
       minLength: 12
       maxLength: 12
       examples:
-        - "100000000001"
+        - "020027219860"
 
     EventLevel:
       type: string
