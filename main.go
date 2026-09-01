@@ -38,9 +38,16 @@ func main() {
 		log.Fatal("API_KEY is not set")
 	}
 
+	pgClient := oms.NewPgClient(pool)
+
 	api := app.Group("/api/v1")
 	omsGroup := api.Group("/oms", apikey.Middleware(apiKey))
-	oms.RegisterRoutes(omsGroup, oms.NewPgClient(pool))
+	oms.RegisterRoutes(omsGroup, pgClient)
+
+	// Admin CRUD to close/re-open outage events directly (bypasses
+	// prepare/confirm — same API_KEY guard as the operational group for now).
+	adminGroup := api.Group("/oms/admin", apikey.Middleware(apiKey))
+	oms.RegisterAdminRoutes(adminGroup, pgClient)
 
 	// Dev-only Swagger UI test client — http://localhost:8080/test/swagger.html
 	// (reads spec live from /spec/*.yaml, no rebuild needed on spec edits)

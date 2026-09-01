@@ -1,0 +1,172 @@
+openapi: 3.1.0
+
+info:
+  title: OMS Admin API
+  version: 1.0.0
+  description: |
+    CRUD ฝั่งแอดมินสำหรับ oms_outage_events — ปรับ/ปิดสถานะเหตุไฟฟ้าขัดข้องได้โดยตรง
+    (ไม่ผ่าน prepare/confirm ของฝั่งผู้ใช้) รันอยู่ใน wsc2026-be เอง ไม่ใช่ external OMS service
+    ต้องมี X-API-Key เหมือน `/api/v1/oms/...`
+
+servers:
+  - url: http://localhost:8080
+    description: wsc2026-be (this gateway)
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Admin
+
+paths:
+  /api/v1/oms/admin/statuses:
+    get:
+      tags: [Admin]
+      operationId: listStatuses
+      summary: รายการ status ที่ใช้ได้ (จาก oms_status)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StatusOption'
+
+  /api/v1/oms/admin/outages:
+    get:
+      tags: [Admin]
+      operationId: listOutages
+      summary: รายการเหตุไฟฟ้าขัดข้องทั้งหมด
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminOutageEvent'
+
+  /api/v1/oms/admin/outages/{eventId}:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema: { type: string }
+
+    get:
+      tags: [Admin]
+      operationId: getOutage
+      summary: ดูเหตุการณ์รายตัว
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminOutageEvent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    patch:
+      tags: [Admin]
+      operationId: updateOutage
+      summary: ปรับสถานะ / ข้อความ / เวลาคาดว่าจะจ่ายไฟคืน (partial update — ปิดงานด้วย status=RESTORED)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOutageEventRequest' }
+            example:
+              status: RESTORED
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminOutageEvent' }
+        '400':
+          description: status ที่ระบุไม่มีอยู่ใน oms_status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: มีเหตุการณ์ที่เปิดอยู่ของผู้ใช้ไฟรายนี้แล้ว (unique active-event-per-CA)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+    delete:
+      tags: [Admin]
+      operationId: deleteOutage
+      summary: ลบเหตุการณ์ (ปกติควรปิดงานด้วย PATCH status=RESTORED แทน — ใช้เมื่อบันทึกผิดจริง ๆ เท่านั้น)
+      responses:
+        '204': { description: ลบสำเร็จ }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  responses:
+    NotFound:
+      description: ไม่พบเหตุการณ์ที่ระบุ
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    StatusOption:
+      type: object
+      additionalProperties: false
+      required: [code, label, isClosed]
+      properties:
+        code: { type: string, examples: [RESTORED] }
+        label: { type: string, examples: ["ปิดงาน / จ่ายไฟคืนแล้ว"] }
+        isClosed: { type: boolean }
+
+    AdminOutageEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, caNumber, level, status, statusLabel, message, startedAt, estimatedRestoreAt]
+      properties:
+        eventId: { type: string }
+        caNumber: { type: string }
+        level: { type: string, enum: [METER, TRANSFORMER, FEEDER] }
+        status: { type: string, enum: [RECEIVED, ACKNOWLEDGED, IN_PROGRESS, RESTORED] }
+        statusLabel: { type: string }
+        message: { type: string }
+        startedAt: { type: string, format: date-time }
+        estimatedRestoreAt:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+
+    UpdateOutageEventRequest:
+      type: object
+      additionalProperties: false
+      description: ฟิลด์ที่ไม่ส่งมาจะไม่ถูกแก้ (partial update)
+      properties:
+        status: { type: string, enum: [RECEIVED, ACKNOWLEDGED, IN_PROGRESS, RESTORED] }
+        message: { type: string, minLength: 1, maxLength: 1000 }
+        estimatedRestoreAt: { type: string, format: date-time }
+
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error: { $ref: '#/components/schemas/ErrorDetail' }
