@@ -161,13 +161,33 @@ func (p *PgClient) CreateAnonymousOutage(ctx context.Context, req CreateAnonymou
 		return nil, internalErr()
 	}
 
-	location := p.enrichAnonymousLocation(ctx, reportID, req.Location+" "+req.Description)
+	var location *GeoPoint
+	if req.Lat != nil && req.Lon != nil {
+		location = p.storeAnonymousClientLocation(ctx, reportID, *req.Lat, *req.Lon)
+	} else {
+		location = p.enrichAnonymousLocation(ctx, reportID, req.Location+" "+req.Description)
+	}
 
 	return &CreateAnonymousOutageResponse{
 		ReportID: reportID, Status: StatusReceived,
 		Message:  "OMS รับแจ้งเหตุโดยไม่มีหมายเลขผู้ใช้ไฟแล้ว",
 		Location: location,
 	}, nil
+}
+
+// storeAnonymousClientLocation persists browser-supplied GPS coordinates
+// (no CA number means no MST GIS lookup was possible). Best-effort like
+// enrichAnonymousLocation: a write failure must not fail the report itself.
+func (p *PgClient) storeAnonymousClientLocation(ctx context.Context, reportID string, lat, lon float64) *GeoPoint {
+	gisType := "POINT"
+	if _, err := p.pool.Exec(ctx,
+		`UPDATE oms_anonymous_reports SET lat = $1, lon = $2, gis_type = $3 WHERE report_id = $4`,
+		lat, lon, gisType, reportID,
+	); err != nil {
+		log.Printf("failed to store client location for anonymous report %s: %v", reportID, err)
+		return nil
+	}
+	return &GeoPoint{Lat: &lat, Lon: &lon, GisType: &gisType}
 }
 
 // enrichOutageLocation is best-effort: a GIS lookup failure or miss must

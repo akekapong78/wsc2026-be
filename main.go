@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
@@ -50,7 +51,9 @@ func main() {
 
 	// Agent connectivity check: confirms both the BE process and the DB
 	// connection are alive (unlike /health, which only proves BE is up).
-	app.Get("/api/v1/ping", func(c *fiber.Ctx) error {
+	// CORS-open (GET only, no secrets in the response) since the demo web/
+	// static page currently runs on a different origin/port than this BE.
+	app.Get("/api/v1/ping", cors.New(cors.Config{AllowOrigins: "*", AllowMethods: "GET"}), func(c *fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 		defer cancel()
 

@@ -80,6 +80,11 @@ type CreateAnonymousOutageRequest struct {
 	Description  string `json:"description"`
 	Location     string `json:"location"`
 	ContactPhone string `json:"contactPhone"`
+	// Optional browser geolocation fallback — no CA means no MST GIS lookup
+	// is possible, so the client can supply coordinates directly instead.
+	// When present these are used as-is and skip enrichAnonymousLocation.
+	Lat *float64 `json:"lat"`
+	Lon *float64 `json:"lon"`
 }
 
 type CreateAnonymousOutageResponse struct {

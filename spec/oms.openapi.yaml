@@ -557,6 +557,23 @@ components:
           maxLength: 32
           description: เบอร์โทรติดต่อกลับ
 
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+          nullable: true
+          description: |
+            พิกัดจาก navigator.geolocation ของเบราว์เซอร์ผู้ใช้ (optional) — ไม่มี
+            CA จึงค้นพิกัดจาก MST GIS ไม่ได้ ถ้าส่งมาคู่กับ lon จะใช้ค่านี้ตรง ๆ
+            แทนการเดาที่อยู่จากข้อความ location
+
+        lon:
+          type: number
+          minimum: -180
+          maximum: 180
+          nullable: true
+          description: คู่กับ lat — ต้องส่งมาทั้งคู่หรือไม่ส่งเลย
+
     CreateAnonymousOutageResponse:
       type: object
       additionalProperties: false
