@@ -157,5 +157,9 @@ func entryFromAnonymousReport(r AdminAnonymousReport) AdminOutageEntry {
 		Tasks:  []OutageTask{}, // avoid JSON null — FE always .map()s this
 		Status: r.Status, StatusLabel: r.StatusLabel, Message: r.Description,
 		StartedAt: r.CreatedAt, Location: r.GeoLocation,
+		// r.Location is the free-text place the user typed in chat (e.g.
+		// "aspine condo") — was dropped here entirely, so the FE fell back
+		// to a synthetic "CA: null" string for every anonymous report.
+		Address: &r.Location,
 	}
 }
