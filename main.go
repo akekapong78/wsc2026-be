@@ -48,6 +48,22 @@ func main() {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
+	// Agent connectivity check: confirms both the BE process and the DB
+	// connection are alive (unlike /health, which only proves BE is up).
+	app.Get("/api/v1/ping", func(c *fiber.Ctx) error {
+		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+		defer cancel()
+
+		if err := pool.Ping(ctx); err != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"status": "error",
+				"db":     "unreachable",
+			})
+		}
+
+		return c.JSON(fiber.Map{"status": "ok", "db": "ok"})
+	})
+
 	apiKey := os.Getenv("API_KEY")
 	if apiKey == "" {
 		log.Fatal("API_KEY is not set")
