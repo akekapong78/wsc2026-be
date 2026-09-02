@@ -481,6 +481,11 @@ components:
       enum:
         - REQUIRED
         - OPTIONAL
+      description: >-
+        REQUIRED บังคับส่ง reporter (รวม phone) เสมอ — OPTIONAL แปลว่า schema
+        ไม่บังคับ แต่ agent ที่คุยกับผู้ใช้ควรปิดท้ายบทสนทนาด้วยการขอเบอร์โทร
+        ติดต่อกลับเสมอถ้าเป็นไปได้ แม้ journey จะไม่ require ก็ตาม เพื่อให้ทีม
+        ที่เกี่ยวข้องติดต่อกลับได้
 
     RequestTypeCode:
       type: string

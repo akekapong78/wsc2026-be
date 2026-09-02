@@ -482,7 +482,11 @@ components:
               minLength: 8
               maxLength: 32
             - type: 'null'
-          description: เบอร์โทรติดต่อกลับ ถ้ามี
+          description: >-
+            เบอร์โทรติดต่อกลับ — ไม่ required (ต่างจาก anonymous report ที่บังคับ
+            เพราะมี caNumber ระบุตัวลูกค้าอยู่แล้ว) แต่ควรเก็บเสมอถ้าเป็นไปได้
+            เพื่อให้ทีมปฏิบัติการติดต่อกลับได้ agent ที่คุยกับผู้ใช้ควรปิดท้าย
+            บทสนทนาด้วยการขอเบอร์โทรติดต่อก่อนเรียก endpoint นี้เสมอ
 
         locationNote:
           anyOf:

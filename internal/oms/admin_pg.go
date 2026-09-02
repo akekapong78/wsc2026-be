@@ -11,7 +11,9 @@ import (
 
 const outageEventCols = `
 	e.event_id, e.ca_number, e.level, e.status, s.label, e.message, e.started_at, e.estimated_restore_at,
-	e.lat, e.lon, e.gis_type`
+	e.lat, e.lon, e.gis_type, e.contact_phone,
+	e.severity, e.cause, e.pea_branch, e.address, e.sub_district, e.district, e.province,
+	e.affected_count, e.priority_customers, e.vip_customers, e.vip_details, e.repeated_outage, e.tasks`
 
 func (p *PgClient) ListStatuses(ctx context.Context) ([]StatusOption, error) {
 	rows, err := p.pool.Query(ctx, `SELECT code, label, is_closed FROM oms_status ORDER BY code`)
@@ -95,18 +97,32 @@ func (p *PgClient) GetOutageEvent(ctx context.Context, eventID string) (*AdminOu
 }
 
 func (p *PgClient) UpdateOutageEvent(ctx context.Context, eventID string, req UpdateOutageEventRequest) (*AdminOutageEvent, error) {
-	row := p.pool.QueryRow(ctx, `
+	tag, err := p.pool.Exec(ctx, `
 		UPDATE oms_outage_events
 		SET status = COALESCE($2, status),
 		    message = COALESCE($3, message),
-		    estimated_restore_at = COALESCE($4, estimated_restore_at)
-		WHERE event_id = $1
-		RETURNING event_id, ca_number, level, status, message, started_at, estimated_restore_at`,
-		eventID, req.Status, req.Message, req.EstimatedRestoreAt)
-
-	var ignored AdminOutageEvent
-	err := row.Scan(&ignored.EventID, &ignored.CaNumber, &ignored.Level, &ignored.Status,
-		&ignored.Message, &ignored.StartedAt, &ignored.EstimatedRestoreAt)
+		    estimated_restore_at = COALESCE($4, estimated_restore_at),
+		    contact_phone = COALESCE($5, contact_phone),
+		    severity = COALESCE($6, severity),
+		    cause = COALESCE($7, cause),
+		    pea_branch = COALESCE($8, pea_branch),
+		    address = COALESCE($9, address),
+		    sub_district = COALESCE($10, sub_district),
+		    district = COALESCE($11, district),
+		    province = COALESCE($12, province),
+		    affected_count = COALESCE($13, affected_count),
+		    priority_customers = COALESCE($14, priority_customers),
+		    vip_customers = COALESCE($15, vip_customers),
+		    vip_details = COALESCE($16, vip_details),
+		    repeated_outage = COALESCE($17, repeated_outage),
+		    tasks = COALESCE($18, tasks)
+		WHERE event_id = $1`,
+		eventID, req.Status, req.Message, req.EstimatedRestoreAt, req.ContactPhone,
+		req.Severity, req.Cause, req.PeaBranch, req.Address, req.SubDistrict, req.District, req.Province,
+		req.AffectedCount, req.PriorityCustomers, req.VipCustomers, req.VipDetails, req.RepeatedOutage, req.Tasks)
+	if err == nil && tag.RowsAffected() == 0 {
+		err = pgx.ErrNoRows
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, &ApiError{Status: 404, Code: ErrEventNotFound, Message: "ไม่พบเหตุการณ์ที่ระบุ"}
 	}
@@ -231,7 +247,9 @@ func scanAdminOutageEvent(row scannable) (AdminOutageEvent, error) {
 	var lat, lon *float64
 	var gisType *string
 	err := row.Scan(&e.EventID, &e.CaNumber, &level, &status, &e.StatusLabel,
-		&e.Message, &e.StartedAt, &e.EstimatedRestoreAt, &lat, &lon, &gisType)
+		&e.Message, &e.StartedAt, &e.EstimatedRestoreAt, &lat, &lon, &gisType, &e.ContactPhone,
+		&e.Severity, &e.Cause, &e.PeaBranch, &e.Address, &e.SubDistrict, &e.District, &e.Province,
+		&e.AffectedCount, &e.PriorityCustomers, &e.VipCustomers, &e.VipDetails, &e.RepeatedOutage, &e.Tasks)
 	e.Level, e.Status = EventLevel(level), OutageStatus(status)
 	if lat != nil && lon != nil {
 		e.Location = &GeoPoint{Lat: lat, Lon: lon, GisType: gisType}

@@ -122,9 +122,9 @@ func (p *PgClient) CreateOutage(ctx context.Context, req CreateOutageRequest) (*
 	eventID := fmt.Sprintf("OMS-METER-%04d", seq)
 
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO oms_outage_events (event_id, ca_number, level, status, message)
-		 VALUES ($1, $2, 'METER', 'RECEIVED', $3)`,
-		eventID, req.CaNumber, req.Description,
+		`INSERT INTO oms_outage_events (event_id, ca_number, level, status, message, contact_phone)
+		 VALUES ($1, $2, 'METER', 'RECEIVED', $3, $4)`,
+		eventID, req.CaNumber, req.Description, req.ContactPhone,
 	); err != nil {
 		return nil, internalErr()
 	}
