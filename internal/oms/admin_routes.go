@@ -13,4 +13,9 @@ func RegisterAdminRoutes(router fiber.Router, pg *PgClient) {
 	router.Get("/outages/:eventId", h.GetOutage)
 	router.Patch("/outages/:eventId", h.UpdateOutage)
 	router.Delete("/outages/:eventId", h.DeleteOutage)
+
+	router.Get("/anonymous-reports", h.ListAnonymousReports)
+	router.Get("/anonymous-reports/:reportId", h.GetAnonymousReport)
+	router.Patch("/anonymous-reports/:reportId", h.UpdateAnonymousReport)
+	router.Delete("/anonymous-reports/:reportId", h.DeleteAnonymousReport)
 }

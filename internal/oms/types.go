@@ -95,6 +95,7 @@ const (
 	ErrInvalidCA        ErrorCode = "INVALID_CA"
 	ErrCANotFound       ErrorCode = "CA_NOT_FOUND"
 	ErrEventNotFound    ErrorCode = "EVENT_NOT_FOUND"
+	ErrReportNotFound   ErrorCode = "REPORT_NOT_FOUND"
 	ErrInvalidInput     ErrorCode = "INVALID_INPUT"
 	ErrActiveEventExist ErrorCode = "ACTIVE_EVENT_EXISTS"
 	ErrOmsUnavailable   ErrorCode = "OMS_UNAVAILABLE"

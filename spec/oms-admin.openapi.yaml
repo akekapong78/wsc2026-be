@@ -38,7 +38,11 @@ paths:
     get:
       tags: [Admin]
       operationId: listOutages
-      summary: รายการเหตุไฟฟ้าขัดข้องทั้งหมด
+      summary: |
+        รายการเหตุไฟฟ้าขัดข้องทั้งหมด รวม oms_outage_events (มี caNumber/level)
+        และ oms_anonymous_reports (ไม่ทราบ CA, มี contactPhone) เป็น timeline
+        เดียว เรียงตาม startedAt ใหม่สุดก่อน — แก้ไข/ลบรายตัวใช้ endpoint
+        แยกตาม source: /outages/{eventId} หรือ /anonymous-reports/{reportId}
       responses:
         '200':
           description: OK
@@ -47,7 +51,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/AdminOutageEvent'
+                  $ref: '#/components/schemas/AdminOutageEntry'
 
   /api/v1/oms/admin/outages/{eventId}:
     parameters:
@@ -105,6 +109,72 @@ paths:
         '204': { description: ลบสำเร็จ }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/oms/admin/anonymous-reports:
+    get:
+      tags: [Admin]
+      operationId: listAnonymousReports
+      summary: รายการเหตุที่แจ้งโดยไม่ทราบหมายเลขผู้ใช้ไฟ (POST /oms/outages/anonymous)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminAnonymousReport'
+
+  /api/v1/oms/admin/anonymous-reports/{reportId}:
+    parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema: { type: string }
+
+    get:
+      tags: [Admin]
+      operationId: getAnonymousReport
+      summary: ดูรายงานรายตัว
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminAnonymousReport' }
+        '404': { $ref: '#/components/responses/ReportNotFound' }
+
+    patch:
+      tags: [Admin]
+      operationId: updateAnonymousReport
+      summary: ปรับสถานะ (partial update)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateAnonymousReportRequest' }
+            example:
+              status: IN_PROGRESS
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminAnonymousReport' }
+        '400':
+          description: status ที่ระบุไม่มีอยู่ใน oms_status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/ReportNotFound' }
+
+    delete:
+      tags: [Admin]
+      operationId: deleteAnonymousReport
+      summary: ลบรายงาน (ใช้เมื่อบันทึกผิดจริง ๆ เท่านั้น)
+      responses:
+        '204': { description: ลบสำเร็จ }
+        '404': { $ref: '#/components/responses/ReportNotFound' }
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -118,6 +188,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ReportNotFound:
+      description: ไม่พบรายงานที่ระบุ
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   schemas:
     StatusOption:
@@ -128,6 +203,38 @@ components:
         code: { type: string, examples: [RESTORED] }
         label: { type: string, examples: ["ปิดงาน / จ่ายไฟคืนแล้ว"] }
         isClosed: { type: boolean }
+
+    AdminOutageEntry:
+      type: object
+      additionalProperties: false
+      description: |
+        Union row: OUTAGE_EVENT ตัดมาจาก oms_outage_events (caNumber/level
+        ไม่เป็น null), ANONYMOUS_REPORT ตัดมาจาก oms_anonymous_reports
+        (contactPhone ไม่เป็น null แต่ caNumber/level เป็น null เสมอ).
+      required: [source, id, caNumber, level, contactPhone, status, statusLabel, message, startedAt, estimatedRestoreAt, location]
+      properties:
+        source: { type: string, enum: [OUTAGE_EVENT, ANONYMOUS_REPORT] }
+        id: { type: string, description: eventId หรือ reportId แล้วแต่ source }
+        caNumber: { anyOf: [{ type: string }, { type: 'null' }] }
+        level:
+          anyOf:
+            - type: string
+              enum: [METER, TRANSFORMER, FEEDER]
+            - type: 'null'
+        contactPhone: { anyOf: [{ type: string }, { type: 'null' }] }
+        status: { type: string, enum: [RECEIVED, ACKNOWLEDGED, IN_PROGRESS, RESTORED] }
+        statusLabel: { type: string }
+        message: { type: string, description: message (event) หรือ description (anonymous) }
+        startedAt: { type: string, format: date-time }
+        estimatedRestoreAt:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        location:
+          anyOf:
+            - $ref: '#/components/schemas/GeoPoint'
+            - type: 'null'
 
     AdminOutageEvent:
       type: object
@@ -176,6 +283,30 @@ components:
         message: { type: string, minLength: 1, maxLength: 1000 }
         estimatedRestoreAt: { type: string, format: date-time }
 
+    AdminAnonymousReport:
+      type: object
+      additionalProperties: false
+      required: [reportId, description, location, contactPhone, status, statusLabel, createdAt, geoLocation]
+      properties:
+        reportId: { type: string }
+        description: { type: string }
+        location: { type: string }
+        contactPhone: { type: string }
+        status: { type: string, enum: [RECEIVED, ACKNOWLEDGED, IN_PROGRESS, RESTORED] }
+        statusLabel: { type: string }
+        createdAt: { type: string, format: date-time }
+        geoLocation:
+          anyOf:
+            - $ref: '#/components/schemas/GeoPoint'
+            - type: 'null'
+
+    UpdateAnonymousReportRequest:
+      type: object
+      additionalProperties: false
+      description: ฟิลด์ที่ไม่ส่งมาจะไม่ถูกแก้ (partial update)
+      properties:
+        status: { type: string, enum: [RECEIVED, ACKNOWLEDGED, IN_PROGRESS, RESTORED] }
+
     ErrorDetail:
       type: object
       additionalProperties: false
@@ -183,7 +314,7 @@ components:
       properties:
         code:
           type: string
-          enum: [EVENT_NOT_FOUND, INVALID_INPUT, ACTIVE_EVENT_EXISTS, INTERNAL_ERROR]
+          enum: [EVENT_NOT_FOUND, REPORT_NOT_FOUND, INVALID_INPUT, ACTIVE_EVENT_EXISTS, INTERNAL_ERROR]
         message: { type: string }
 
     ErrorResponse:
